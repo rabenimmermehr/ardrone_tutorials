@@ -48,8 +48,7 @@ class Keyboard(DroneVideoDisplay):
         def keyPressEvent(self, event):
                 key = event.key()
                 steering_matrix = matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-                # If we have constructed the drone  and the key is not generated from an auto-repeating key
-                #if  controller is not None and not event.isAutoRepeat():
+                # If we have constructed the drone controller and the key is not generated from an auto-repeating key
                 if not event.isAutoRepeat():
                         # Handle the important cases first!
                         if key == KeyMapping.Emergency:
@@ -81,7 +80,6 @@ class Keyboard(DroneVideoDisplay):
                                         self.z_velocity += -1
 
                         # finally we set the command to be sent. The controller handles sending this at regular intervals
-                        #.SetCommand(self.roll, self.pitch, self.yaw_velocity, self.z_velocity)
                         steering_matrix.m11 = self.pitch
                         steering_matrix.m12 = self.roll
                         steering_matrix.m13 = self.z_velocity
@@ -94,7 +92,6 @@ class Keyboard(DroneVideoDisplay):
 
                 steering_matrix = matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
                 # If we have constructed the drone  and the key is not generated from an auto-repeating key
-                #if controller is not None and not event.isAutoRepeat():
                 if not event.isAutoRepeat():
                         # Note that we don't handle the release of emergency/takeoff/landing keys here, there is no need.
                         # Now we handle moving, notice that this section is the opposite (-=) of the keypress section
@@ -119,7 +116,6 @@ class Keyboard(DroneVideoDisplay):
                                 self.z_velocity -= -1
 
                         # finally we set the command to be sent. The controller handles sending this at regular intervals
-                        #.SetCommand(self.roll, self.pitch, self.yaw_velocity, self.z_velocity)
                         steering_matrix.m11 = self.pitch
                         steering_matrix.m12 = self.roll
                         steering_matrix.m13 = self.z_velocity
@@ -138,14 +134,11 @@ if __name__=='__main__':
         # Now we construct our Qt Application and associated s and windows
         app = QtGui.QApplication(sys.argv)
 
-    #mine
-    #Set up the publisher for the steering commands
+        # Set up the publisher for the steering commands
         pub_steering = rospy.Publisher('ardrone/steering_commands', matrix33)
-    #end
 
-    # = BasicDrone()
+        # Set up the display
         display = Keyboard()
-
         display.show()
 
         # executes the QT application
