@@ -71,10 +71,10 @@ class BasicDroneController(object):
         self.command.angular.z = steering_matrix.m21
 
         print self.command
-        print steering_matrix.m11
-        print steering_matrix.m12
-        print steering_matrix.m13
-        print steering_matrix.m21
+        print "pitch/m11: %f" % steering_matrix.m11
+        print "roll/m12: %f" % steering_matrix.m12
+        print "z_velocity/m13: %f" % steering_matrix.m13
+        print "yaw_velocity/m21: %f" % steering_matrix.m21
         print "-------------------------------------------------------"
 
     def SendCommand(self,event):
