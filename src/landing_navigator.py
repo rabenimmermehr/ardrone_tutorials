@@ -1,20 +1,30 @@
+# Import stuff to kill sript when necessary via ctrl+c
+import signal
+import sys
+
 # Import the ROS libraries, and load the manifest file which through <depend package=... /> will give us access to the project dependencies
 import roslib; roslib.load_manifest('ardrone_tutorials')
 import rospy
 
-
-# Imprt the messages
+# Import the messages
 from ardrone_autonomy.msg import matrix33 # for steering commands
 from ardrone_autonomy.msg import Navdata # for receiving navdatas from the drone, especially the tags
 
-# Some constants
-FIND_TAG_TURN_RATE = 10 # The command to turn the drone while looking for a tag is sent for this duration
-                        # Unit is Hz, so it turns only for 1/10th of a second
+# Import the class containing all the constants
+from navigator_constants import NavigatorConstants
 
-MATRIX_TURN_VALUE = 0.5 # The intensitiy at which rate the drone turns, between 0 and 1, 1 is
-                        # what a keyboard press sends
+# Import stuff for threads
+from threading import Thread
+from time import sleep
 
-class Landing_Navigaor(object):
+
+# Listener, to make the script stoppable via ctrl + c
+def signal_handler(signal, frame):
+    print 'You pressed Ctrl+C!'
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
+class Landing_Navigator(object):
 
     def __init__(self):
 
@@ -27,39 +37,48 @@ class Landing_Navigaor(object):
         # Allow the navigator to send commands to the controller
         self.pubSteering = rospy.Publisher('ardrone/steering_commands', matrix33)
 
-    # Handles the incoming data
+        # Get those constants
+        self.constants = NavigatorConstants()
+
     def ReceiveNavdata(self, navdata):
+        ''' Recieves the incoming navdata and stores it'''
+
         # !!!! TODO Check for possible collisions, when both the subscriber and the code try to access the variable
         self.lastNavdata = navdata
 
-    # Gets the x-position of the tag, returns a matrix with appropriate steering commands
+
     def GetTurnValue(self, xc):
+        '''Gets the x-position of the tag and calculates the appropriate steering command
+           @param xc The x position of the tag in the range from 0 - 1000, from left to right
+           @return A matrix33 with appropriate steering commands or True, if the tag is centered
 
-        # !!!!! TODO Implement controller here, so that the returned matrix stands in relation
-        #  to the position of the tag
+        '''
 
+        # !!!!! TODO Implement controller here, so that the returned matrix is in relation
+        #    to the position of the tag
 
         # Turns the drone, because no tag was found
         if xc == -1:
-            return matrix33(0.0, 0.0, 0.0, MATRIX_TURN_VALUE, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return matrix33(0.0, 0.0, 0.0, self.constants.FIND_TAG_TURN_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0)
         # Tag is too far left
         elif xc >= 0 and xc <= 460:
-            return matrix33(0.0, 0.0, 0.0, MATRIX_TURN_VALUE, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return matrix33(0.0, 0.0, 0.0, self.constants.FIND_TAG_TURN_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0)
         # Tag is too far right
         elif xc >=  540 and xc <= 1000:
-            return matrix33(0.0, 0.0, 0.0, -MATRIX_TURN_VALUE, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return matrix33(0.0, 0.0, 0.0, -self.constants.FIND_TAG_TURN_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0)
         # Tag is centered
         elif 460 < xc and xc < 540:
-            return true
+            return True
 
-    # Keeps the drone in one position, but rotates it, until a tag is found and centered in the field of view
     def FindTag(self):
+        ''' Keeps the drone in one position, but rotates it
+            for a short moment,trying to find and center a tag
+            The direction depends on if a tag is visible.
+            @return False if the tag wasn't centered, True if it was
+        '''
 
         # Necessary to wait for the drone to turn
-        r = rospy.Rate(FIND_TAG_TURN_RATE)
-
-        # The command to stop the drone turning
-        stopTurning = matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        r = rospy.Rate(self.constants.FIND_TAG_TURN_RATE)
 
         # Navdata is available and no tag is visible
         if self.lastNavdata != None and self.lastNavdata.tags_count == 0:
@@ -69,7 +88,7 @@ class Landing_Navigaor(object):
             # Wait a moment
             r.sleep()
             # Stop turning
-            self.pubSteering.publish(stopTurning)
+            self.pubSteering.publish(self.constants.STOP_MOVING)
             return False
 
         # So, now we found a tag, lets try to center it in the field of view
@@ -86,42 +105,170 @@ class Landing_Navigaor(object):
                 # Wait a moment
                 r.sleep()
                 # Stop turning
-                self.pubSteering.publish(stopTurning)
+                self.pubSteering.publish(self.constants.STOP_MOVING)
                 return False
 
         # In case I forgot any cases / No navdata available
         return False
 
-    # Tells the drone to approach the tag
-    def approachTag(self):
-        # Necessary to wait for the drone to move
-        r = rospy.Rate(FIND_TAG_TURN_RATE)
 
-        # The command to stop the drone moving
-        stopMoving = matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    def CenterTag(self):
+        ''' Moves the drone laterally in order to center it
+            Throws an exception if no tag was found
+            @return True tag is centered
+        '''
+        # Create a copy of the current Navdata, so it doesn't get updated
+        # while running this method
+        myNavdata = self.lastNavdata
+
+        # No tag? Raise error
+        if myNavdata.tags_count == 0:
+            raise Exception('No Tag available')
+
+
+        # Create the timer
+        r = rospy.Rate(self.constants.TAG_APPROACH_RATE)
+
+        # Tag, but not centered? Move laterally
+
+        # Too far left
+        if(myNavdata.tags_xc[0] <= 480 and myNavdata.tags_xc[0] >= 0 ):
+
+            steering_matrix = matrix33(0.0, self.constants.TAG_CENTER_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            # Send the command
+            self.pubSteering.publish(steering_matrix)
+            # Wait for a moment
+            r.sleep()
+            # Stop the drone
+            self.pubSteering.publish(self.constants.STOP_MOVING)
+
+            return False
+
+        # Too far right
+        elif(myNavdata.tags_xc[0] >= 520 and myNavdata.tags_xc[0] <= 1000):
+
+            steering_matrix = matrix33(0.0, -self.constants.TAG_CENTER_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            # Send the command
+            self.pubSteering.publish(steering_matrix)
+            # Wait for a moment
+            r.sleep()
+            # Stop the drone
+            self.pubSteering.publish(self.constants.STOP_MOVING)
+
+            return False
+
+        # Centered
+        else:
+            return True
+
+    # Tells the drone to approach the tag
+    def ApproachTag(self):
+        ''' Tells the drone to approach the tag up to distance of 1.3 m
+            @return True if it is sufficiently close, False otherwise
+        '''
+
+        # Create a copy of the current Navdata, so it doesn't get updated
+        # while running this method
+        myNavdata = self.lastNavdata
+
+        # No tag? Raise error
+        if myNavdata.tags_count == 0:
+            raise Exception('No Tag available')
+
+
+
+        # Necessary to wait for the drone to move
+        r = rospy.Rate(self.constants.TAG_APPROACH_RATE)
+
+        # Tag is visible and centered
+        if (myNavdata.tags_count == 1 and self.GetTurnValue(myNavdata.tags_xc[0]) == True):
+
+
+            # If the distance is bigger than 30 cm !!!! TODO !!!! Check if 0.30 actually is 30cm
+            if myNavdata.tags_distance[0] >= 1.30:
+                steering_matrix = matrix33(self.constants.TAG_APPROACH_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+                # Send the command
+                self.pubSteering.publish(steering_matrix)
+                # Wait for a moment
+                r.sleep()
+                # Stop the drone
+                self.pubSteering.publish(self.constants.STOP_MOVING)
+
+                return False
+
+            # Drone is sufficiently close to the tag
+            elif self.lastNavdata.tags_distance[0] <= 1.30:
+                return True
+
+        # Tag is visible but not centered
+            else:
+                print "Tag is not centered"
+
+    def findTagThread(self):
+        ''' A thread that recursively calls the "FindTag()" method
+            and stops once it has found and centered it
+        '''
+
+        # The function which gets put into the thread
+        def threadedLoop(navigator):
+
+            while not navigator.FindTag():
+                sleep(1);
+                print("Tag not centered")
+
+        # Creating the thread
+        thread = Thread(target = threadedLoop, args = (self,))
+        thread.start()
+        thread.join()
+        print("Tag is centered")
+
+
+    def approachTagThread(self):
+        ''' A thread that tries to approach the tag via calling the "ApproachTag()" and "CenterTag()"
+            whenever necessary
+        '''
+        # The function which gets put into the thread
+        def threadedLoop(navigator):
+
+
+            while not navigator.ApproachTag():
+                if navigator.CenterTag():
+                   pass
+                else:
+                    navigator.CenterTag()
+
+        # Creating the thread
+        thread = Thread(target = threadedLoop, args = (self,))
+        thread.start()
+        thread.join()
+        print("Tag is approached")
 
 
 # Set up a ROS node
 rospy.init_node('landing_navigator')
 
 # Create the navigator
-navigator = Landing_Navigaor()
-
+navigator = Landing_Navigator()
+'''
 centeredTag = False
 
 # Check at a rate of 2 Hz
 r = rospy.Rate(2)
+'''
+#try:
+'''
+while True:
+    # Find and center the tag:
+    while not centeredTag:
+        centeredTag = navigator.FindTag()
+        r.sleep()
 
-try:
-    while True:
-        # Find and center the tag:
-        while not centeredTag:
-            centeredTag = navigator.FindTag()
-            r.sleep()
-
-        print "Tag is centered"
-        centeredTag = False
-        raw_input("Press Enter to look again")
-except:
+    print "Tag is centered"
+    centeredTag = False
+    raw_input("Press Enter to look again")
+'''
+'''except:
     print "Stopping"
     sys.exit(1)
+'''
+
