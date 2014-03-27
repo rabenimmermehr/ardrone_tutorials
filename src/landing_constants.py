@@ -1,14 +1,13 @@
 # Necessary to build the empty steering command
 from ardrone_autonomy.msg import matrix33
 
-class NavigatorConstants(object):
+class LandingConstants(object):
 
     def __init__(self):
 
-
-        # The command to turn the drone while looking for a tag is sent for this duration
+        # How long the drone should carry out the action
         # Unit is Hz
-        self.FIND_TAG_TURN_RATE = 2
+        self.COMMAND_PUBLISH_RATE   = 1
 
         # The velocity with which the drone turns, between 0 and 1, 1 is
         # what a keyboard press sends
