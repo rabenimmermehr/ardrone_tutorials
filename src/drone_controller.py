@@ -45,13 +45,6 @@ class BasicDroneController(object):
         # Send an emergency (or reset) message to the ardrone driver
         self.pubReset.publish(Empty())
 
-#    def SetCommand(self,roll=0,pitch=0,yaw_velocity=0,z_velocity=0):
-#       # Called by the main program to set the current command
-#         self.command.linear.x  = pitch
-#         self.command.linear.y  = roll
-#         self.command.linear.z  = z_velocity
-#         self.command.angular.z = yaw_velocity
-
     def SetCommand(self, steering_matrix):
         # m11 = pitch
         # m12 = roll
@@ -78,10 +71,10 @@ class BasicDroneController(object):
         self.command.angular.z = steering_matrix.m21
 
         print self.command
-        print steering_matrix.m11
-        print steering_matrix.m12
-        print steering_matrix.m13
-        print steering_matrix.m21
+        print "pitch/m11: %f" % steering_matrix.m11
+        print "roll/m12: %f" % steering_matrix.m12
+        print "z_velocity/m13: %f" % steering_matrix.m13
+        print "yaw_velocity/m21: %f" % steering_matrix.m21
         print "-------------------------------------------------------"
 
     def SendCommand(self,event):
