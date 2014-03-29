@@ -51,7 +51,14 @@ class LandingController(object):
 
         self.approachFrontController = PID(0.4, 0.0, 2.0)
         self.approachFrontController.setPoint(0)
-
+        
+        self.centerBottomXController = PID()
+        self.centerBottomXController.setPoint(0)
+        
+        self.centerBottomYController = PID()
+        self.centerBottomYController.setPoint(0)
+        
+        
         # Stores if we centered the tag once already (In that case, we can assume we are on a direct path
         # towards the tag and can now move laterally instead of turning in one place)
         self.wasTagCentered = False
@@ -131,7 +138,7 @@ class LandingController(object):
 
                 if currentAngle > 170.0 and currentAngle < 190.0:
                     # Ok, so we are turned correctly, we need to center the bottom tag now. If it is centered
-                    # the command to land will be sent
+                    # the command to land will be returned
                     return self.LandingPreparations(navdata)
 
                 else:
@@ -225,6 +232,38 @@ class LandingController(object):
 
         return matrix33(controller_output * self.constants.TAG_APPROACH_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
+    def LandingPreparations(self, navdata):
+        
+        tagIndex = self.GetBottomTagIndex(navdata)
+        tagXPosition = navdata.tags_xc[tagIndex]
+        tagYPosition = navdata.tags_yc[tagIndex]
+        
+       
+        if not (tagYPosition > 480 and tagYPosition < 520):
+        # At first, check if the tag is centered in the Y direction    
+            controller_input = (tagYPosition - 500) / 500
+            controller_output = self.centerBottomYController.update(controller_input)
+            controller_ouput = self.centerBottomYController.avoid_drastic_corrections(controller_output)
+            return matrix33(controller_output * self.constants.CENTER_BOTTOM_Y_VELOCITY,  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            
+        elif not (tagXPosition > 480 and tagXPosition < 520):
+        # Then center it in the X direction
+        
+            controller_input = (tagXPosition - 500) / 500
+            controller_output = self.centerBottomXController.update(controller_input)
+            controller_ouput = self.centerBottomXController.avoid_drastic_corrections(controller_output)
+            return matrix33(0.0, controller_output * self.constants.CENTER_BOTTOM_X_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            
+        else:
+        # Tag is centered in both directions, we are done, we can land!
+            return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+            
+            
+    def AlignBottomTag(self, navdata):
+        
+        tagIndex = self.GetBottomTagIndex(navdata)
+        
+        # controller_input = 
 
     def GetBottomTagIndex(self, navdata):
         '''
