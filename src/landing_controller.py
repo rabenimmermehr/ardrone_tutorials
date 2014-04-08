@@ -49,7 +49,7 @@ class LandingController(object):
         self.findTagController = PID(1.0, 0.3, 0.5)
         self.findTagController.setPoint(0.0)
 
-        self.centerFrontController = PID(0.6, 0.8, 1.0)
+        self.centerFrontController = PID(0.8, 0.1, 1.0)
         self.centerFrontController.setPoint(0)
 
         self.approachFrontController = PID(1.0, 3.0, 2.0)
@@ -68,6 +68,9 @@ class LandingController(object):
         # Stores if we centered the tag once already (In that case, we can assume we are on a direct path
         # towards the tag and can now move laterally instead of turning in one place)
         self.wasTagCentered = False
+
+        # A flag to stop the loop for when we are done
+        self.success  = False
 
     def __SignalHandler(self, frame, placeholderArgument):
         '''
@@ -98,6 +101,7 @@ class LandingController(object):
         # Reset flags
         self.stopTask = False
         self.wasTagCentered = False
+        self.success = False
 
         # Reset the controllers
         self.findTagController.setPoint(0)
@@ -107,7 +111,22 @@ class LandingController(object):
         self.centerBottomYController.setPoint(0)
         self.alignBottomController.setPoint(0)
 
-        while not self.stopTask:
+        # Get the drone up to a good height:
+        workingNavdata = self.recentNavdata
+
+        while (workingNavdata.altd < 1500):
+
+            if self.stopTask:
+                break
+            workingNavdata = self.recentNavdata
+            self.ExecuteCommand(matrix33(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            print "Gaining Altitude"
+
+
+
+        # Now we are at a proper height and we can start finding & approaching the tag
+
+        while not self.stopTask and not self.success:
 
             # Create a copy of the current navdata, so it doesn't get refreshed while we work on it
             workingNavdata = self.recentNavdata
@@ -116,6 +135,8 @@ class LandingController(object):
             steeringCommand = self.TellMeWhatToDo(workingNavdata)
             self.ExecuteCommand(steeringCommand)
 
+        # In case we got stopped via the keyboard, we want to make sure that our last command is to stop the drone from
+        # doing anything
         steeringCommand = self.constants.STOP_MOVING
         self.ExecuteCommand(steeringCommand)
 
@@ -222,6 +243,8 @@ class LandingController(object):
         bottomTagIndex = self.GetBottomTagIndex(navdata)
         frontTagIndex = self.GetFrontTagIndex(navdata)
 
+        print navdata.altd
+
         if navdata.tags_count == 0:
             # No tag visible
             # We want the drone to turn in one place
@@ -234,7 +257,10 @@ class LandingController(object):
 
             # We need to check if we are turned the right way above the tag
             currentAngle = navdata.tags_orientation[bottomTagIndex]
+
+            # (Actually this step doesn't seem to be necessary so we skip it)
             return self.LandingPreparations(navdata)
+
 #             if currentAngle > 170.0 and currentAngle < 190.0:
 #                 # Ok, so we are turned correctly, we need to center the bottom tag now. If it is centered
 #                 # the command to land will be returned
@@ -356,6 +382,7 @@ class LandingController(object):
 
         else:
         # Tag is centered in both directions, we are done, we can land!
+            self.success = True
             return matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
 
 

@@ -7,7 +7,7 @@ class LandingConstants(object):
 
         # How long the drone should carry out the action
         # Unit is Hz
-        self.COMMAND_PUBLISH_RATE   = 0.5
+        self.COMMAND_PUBLISH_RATE   = 1.5
 
         # The velocity with which the drone turns, between 0 and 1, 1 is
         # what a keyboard press sends
