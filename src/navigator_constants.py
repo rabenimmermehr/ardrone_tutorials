@@ -18,19 +18,19 @@ class NavigatorConstants(object):
         # Unit is Hz, so it moves for only 1/10th of a second
         self.TAG_APPROACH_RATE = 2
 
-        # The size of the angle the drone will make sideways, between 0 and 1, 1 is
+        # The velocity with which the drone will move laterally, between 0 and 1, 1 is
         # what a keyboard press sends
         self.TAG_CENTER_VELOCITY = 0.5
 
         # The velocity with which the drone approaches a tag, between 0 and 1,
         # 1 is equivalent to a keypress
-        self.TAG_APPROACH_VELOCITY = 0.1
+        self.TAG_APPROACH_VELOCITY = 0.6
 
         # A matrix with an empty command, this is sent whenever the drone needs to stop
         # moving
         self.STOP_MOVING = matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
-        # The code for the 3 striped tag:
+        # The code for the 3 striped tag (Green Orange Green):
         self.frontTagType = 0
 
         # The code for the oriented A4 tag:
@@ -47,4 +47,4 @@ class NavigatorConstants(object):
         self.reduceDistance = 250.0
 
         # A factor to further reduce sidewards movements
-        self.reduceFactor = 0.5
+        self.reduceFactor = 1

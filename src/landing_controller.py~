@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Import the ROS libraries, and load the manifest file which through <depend package=... /> will give us access to the project dependencies
 import roslib;
 roslib.load_manifest('ardrone_tutorials')
@@ -25,8 +24,8 @@ class LandingController(object):
     def __init__(self):
 
         # Stores the most recent navdata
-        self.recentNavdata = None
-
+        self.recentNavdata = None 
+       
 	# Subscribe to the /ardrone/navdata topic, so we get updated whenever new information arrives from the drone
         self.subscribeNavdata = rospy.Subscriber('ardrone/navdata', Navdata, self.__ReceiveNavdata)
 
@@ -46,25 +45,25 @@ class LandingController(object):
         self.r = rospy.Rate(self.constants.COMMAND_PUBLISH_RATE)
 
         # Create controllers, which weigh the steering commands according to different variables
-        self.findTagController = PID(1.0, 0.3, 0.5)
+        self.findTagController = PID(3.0, 0.0, 1.0)
         self.findTagController.setPoint(0.0)
 
-        self.centerFrontController = PID(0.6, 0.8, 1.0)
+        self.centerFrontController = PID(0.4, 0.0, 2.0)
         self.centerFrontController.setPoint(0)
 
-        self.approachFrontController = PID(1.0, 3.0, 2.0)
+        self.approachFrontController = PID(0.4, 0.0, 2.0)
         self.approachFrontController.setPoint(0)
-
-        self.centerBottomXController = PID(0.3, 1.0, 1.0)
+        
+        self.centerBottomXController = PID()
         self.centerBottomXController.setPoint(0)
-
-        self.centerBottomYController = PID(0.3, 1.0, 1.0)
+        
+        self.centerBottomYController = PID()
         self.centerBottomYController.setPoint(0)
-
+        
         self.alignBottomController = PID()
         self.alignBottomController.setPoint(0)
-
-
+        
+        
         # Stores if we centered the tag once already (In that case, we can assume we are on a direct path
         # towards the tag and can now move laterally instead of turning in one place)
         self.wasTagCentered = False
@@ -115,113 +114,31 @@ class LandingController(object):
             # Receive the necessary actions
             steeringCommand = self.TellMeWhatToDo(workingNavdata)
             self.ExecuteCommand(steeringCommand)
-
-        steeringCommand = self.constants.STOP_MOVING
-        self.ExecuteCommand(steeringCommand)
-
-
-    def BringMeCenterRotate(self):
-
-        # Reset flags
-        self.stopTask = False
-        self.wasTagCentered = False
-
-        self.findTagController.setPoint(0)
-
-        while not self.stopTask and ( self.recentNavdata.tags_xc[self.GetFrontTagIndex(self.recentNavdata)] > 480 or
-                                    self.recentNavdata.tags_xc[self.GetFrontTagIndex(self.recentNavdata)] < 520 ) :
-
-            # Create a copy of the current navdata, so it doesn't get refreshed while we work on it
-            workingNavdata = self.recentNavdata
-
-            if workingNavdata.tags_count == 0:
-                # No tag visible
-                # We want the drone to turn in one place
-
-                steeringCommand = matrix33(0.0, 0.0, 0.0, self.constants.FIND_TAG_TURN_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0)
-
-            else:
-                # Receive the necessary actions
-                steeringCommand = self.TellMeFindTag(workingNavdata)
-
-            self.ExecuteCommand(steeringCommand)
-
-        print "Done"
-
-    def BringMeCenterLateral(self):
-
-        # Reset flags
-        self.stopTask = False
-        self.wasTagCentered = False
-
-        self.centerFrontController.setPoint(0)
-
-        while not self.stopTask:
-
-            # Create a copy of the current navdata, so it doesn't get refreshed while we work on it
-            workingNavdata = self.recentNavdata
-
-            # Receive the necessary actions
-            steeringCommand = self.TellMeCenter(workingNavdata)
-            self.ExecuteCommand(steeringCommand)
-
-
-    def GetMeAligned(self):
-
-         # Reset flags
-        self.stopTask = False
-        self.wasTagCentered = False
-        self.alignBottomController.setPoint(0)
-
-
-        while not self.stopTask:
-
-            workingNavdata = self.recentNavdata
-
-            steeringCommand = self.AlignBottomTag(workingNavdata)
-            self.ExecuteCommand(steeringCommand)
-
-    def GetMeReady(self):
-
-         # Reset flags
-        self.stopTask = False
-        self.wasTagCentered = False
-
-        self.centerBottomXController.setPoint(0)
-        self.centerBottomYController.setPoint(0)
-
-        while not self.stopTask:
-            workingNavdata = self.recentNavdata
-
-            steeringCommand = self.LandingPreparations(workingNavdata)
-            self.ExecuteCommand(steeringCommand)
-
+            
 
     def ExecuteCommand(self, steeringCommand):
         '''
             Takes a matrix33, publishes it to the drone, waits a moment and then sends the command to stop movement
         '''
-
+        
         # Publish the command
         self.publishSteering.publish(steeringCommand)
         # Let the drone actually do that action for a moment
         self.r.sleep()
         # Stop the movement
         self.publishSteering.publish(self.constants.STOP_MOVING)
-        # Wait a moment for the drone to calm down
-        self.r.sleep()
 
     def TellMeWhatToDo(self, navdata):
         '''
             Gets the current navdata and returns a matrix33 with appropriate steering commands
         '''
-
+        
         # We got 3 cases: No tag visible, front tag visble, bottom tag visible
-
+        
         # Check where the tags are in the arrays in the navdata (You can check which information the navdata contains from the commandline with "rosmsg show ardrone/Navdata")
         bottomTagIndex = self.GetBottomTagIndex(navdata)
         frontTagIndex = self.GetFrontTagIndex(navdata)
-
+            
         if navdata.tags_count == 0:
             # No tag visible
             # We want the drone to turn in one place
@@ -234,16 +151,16 @@ class LandingController(object):
 
             # We need to check if we are turned the right way above the tag
             currentAngle = navdata.tags_orientation[bottomTagIndex]
-            return self.LandingPreparations(navdata)
-#             if currentAngle > 170.0 and currentAngle < 190.0:
-#                 # Ok, so we are turned correctly, we need to center the bottom tag now. If it is centered
-#                 # the command to land will be returned
-#                 return self.LandingPreparations(navdata)
 
-#             else:
-#                 # We need to turn the drone on the spot
-#                 return self.AlignBottomTag(navdata)
+            if currentAngle > 170.0 and currentAngle < 190.0:
+                # Ok, so we are turned correctly, we need to center the bottom tag now. If it is centered
+                # the command to land will be returned
+                return self.LandingPreparations(navdata)
 
+            else:
+                # We need to turn the drone on the spot
+                return self.AlignBottomTag(navdata)
+            
         else:
             # Only the front tag is visble
             # Now we got 2 cases:
@@ -253,7 +170,7 @@ class LandingController(object):
             # The x position is represented in values between 0 - 1000 from left to right
             x = navdata.tags_xc[frontTagIndex]
 
-            if x > 450 and x < 550:
+            if x > 480 and x < 520:
                 # It is pretty centered, set the flag and start approaching
                 self.wasTagCentered = True
                 print "Approaching"
@@ -271,7 +188,7 @@ class LandingController(object):
                     print "Turning"
                     return self.TellMeFindTag(navdata)
 
-
+            
     def TellMeFindTag(self, navdata):
         '''
             Returns a matrix33 with appropriate commands to center the front tag in the field of view,
@@ -334,41 +251,40 @@ class LandingController(object):
             Returns the appropriate commands to center the bottom tag. Once it is centered, it returns the command to land
         '''
         tagIndex = self.GetBottomTagIndex(navdata)
-        print tagIndex
         tagXPosition = navdata.tags_xc[tagIndex]
         tagYPosition = navdata.tags_yc[tagIndex]
-
-
-        if not (tagYPosition > 400 and tagYPosition < 600):
-        # At first, check if the tag is centered in the Y direction
+        
+       
+        if not (tagYPosition > 480 and tagYPosition < 520):
+        # At first, check if the tag is centered in the Y direction    
             controller_input = (tagYPosition - 500) / 500
             controller_output = self.centerBottomYController.update(controller_input)
             controller_ouput = self.centerBottomYController.avoid_drastic_corrections(controller_output)
             return matrix33(controller_output * self.constants.CENTER_BOTTOM_Y_VELOCITY,  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-
-        elif not (tagXPosition > 400 and tagXPosition < 600):
+            
+        elif not (tagXPosition > 480 and tagXPosition < 520):
         # Then center it in the X direction
-
+        
             controller_input = (tagXPosition - 500) / 500
             controller_output = self.centerBottomXController.update(controller_input)
             controller_ouput = self.centerBottomXController.avoid_drastic_corrections(controller_output)
             return matrix33(0.0, controller_output * self.constants.CENTER_BOTTOM_X_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-
+            
         else:
         # Tag is centered in both directions, we are done, we can land!
-            return matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
-
-
+            return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+            
+            
     def AlignBottomTag(self, navdata):
         '''
             Returns the command to orient the drone in a 180° angle over the bottom tag
         '''
         tagIndex = self.GetBottomTagIndex(navdata)
-
+        
         controller_input = navdata.tags_orientation[tagIndex] - 180.0 / 360.0
         controller_output = self.alignBottomController.update(controller_input)
         controller_output = self.alignBottomController.avoid_drastic_corrections(controller_output)
-
+        
         return matrix33(0.0, 0.0, 0.0, controller_output * self.constants.ALIGN_BOTTOM_TAG_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     def GetBottomTagIndex(self, navdata):

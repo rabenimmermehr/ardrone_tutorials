@@ -7,7 +7,7 @@ class LandingConstants(object):
 
         # How long the drone should carry out the action
         # Unit is Hz
-        self.COMMAND_PUBLISH_RATE   = 1
+        self.COMMAND_PUBLISH_RATE   = 0.5
 
         # The velocity with which the drone turns, between 0 and 1, 1 is
         # what a keyboard press sends
@@ -23,7 +23,7 @@ class LandingConstants(object):
 
         # The velocity with which the drone approaches a tag, between 0 and 1,
         # 1 is equivalent to a keypress
-        self.TAG_APPROACH_VELOCITY = 0.1
+        self.TAG_APPROACH_VELOCITY = 0.2
 
         # A matrix with an empty command, this is sent whenever the drone needs to stop
         # moving
@@ -47,12 +47,12 @@ class LandingConstants(object):
 
         # A factor to further reduce sidewards movements
         self.reduceFactor = 0.5
-        
+
         # How fast the drone should move laterally to center the bottom tag in the x direction
-        self.CENTER_BOTTOM_X_VELOCITY = 0.5
-        
+        self.CENTER_BOTTOM_X_VELOCITY = 0.05
+
         # How fast the drone should move laterally to center the bottom tag in the y direction
-        self.CENTER_BOTTOM_Y_VELOCITY = 0.5
-        
+        self.CENTER_BOTTOM_Y_VELOCITY = 0.05
+
         # How fast the drone should turn on the spot to orient itself properly over the bottom tag
         self.ALIGN_BOTTOM_TAG_VELOCITY = 0.5
