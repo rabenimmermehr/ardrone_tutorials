@@ -7,11 +7,11 @@ class LandingConstants(object):
 
         # How long the drone should carry out the action
         # Unit is Hz
-        self.COMMAND_PUBLISH_RATE   = 1.5
+        self.COMMAND_PUBLISH_RATE   = 5
 
         # The velocity with which the drone turns, between 0 and 1, 1 is
         # what a keyboard press sends
-        self.FIND_TAG_TURN_VELOCITY = 0.6
+        self.FIND_TAG_TURN_VELOCITY = 0.2
 
         # The command to approach the tag is sent for this duration
         # Unit is Hz, so it moves for only 1/10th of a second
@@ -19,11 +19,11 @@ class LandingConstants(object):
 
         # The size of the angle the drone will make sideways, between 0 and 1, 1 is
         # what a keyboard press sends
-        self.TAG_CENTER_VELOCITY = 0.5
+        self.TAG_CENTER_VELOCITY = 0.1
 
         # The velocity with which the drone approaches a tag, between 0 and 1,
         # 1 is equivalent to a keypress
-        self.TAG_APPROACH_VELOCITY = 0.2
+        self.TAG_APPROACH_VELOCITY = 0.04
 
         # A matrix with an empty command, this is sent whenever the drone needs to stop
         # moving
@@ -36,7 +36,7 @@ class LandingConstants(object):
         self.bottomTagType = 131072
 
         # The distance, up to which the tag should be approached, measured in cm
-        self.desiredDistance = 180.0
+        self.desiredDistance = 80.0
 
         # The distance, from which point on the controller will regulate the approach speed, measured in cm
         self.controllerDistance = 250.0
@@ -49,10 +49,10 @@ class LandingConstants(object):
         self.reduceFactor = 0.5
 
         # How fast the drone should move laterally to center the bottom tag in the x direction
-        self.CENTER_BOTTOM_X_VELOCITY = 0.05
+        self.CENTER_BOTTOM_X_VELOCITY = 0.01
 
         # How fast the drone should move laterally to center the bottom tag in the y direction
-        self.CENTER_BOTTOM_Y_VELOCITY = 0.05
+        self.CENTER_BOTTOM_Y_VELOCITY = 0.01
 
         # How fast the drone should turn on the spot to orient itself properly over the bottom tag
-        self.ALIGN_BOTTOM_TAG_VELOCITY = 0.5
+        self.ALIGN_BOTTOM_TAG_VELOCITY = 0.1

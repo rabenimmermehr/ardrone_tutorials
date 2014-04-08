@@ -49,10 +49,10 @@ class LandingController(object):
         self.findTagController = PID(1.0, 0.3, 0.5)
         self.findTagController.setPoint(0.0)
 
-        self.centerFrontController = PID(0.8, 0.1, 1.0)
+        self.centerFrontController = PID(0.8, 0.01, 1.0)
         self.centerFrontController.setPoint(0)
 
-        self.approachFrontController = PID(1.0, 3.0, 2.0)
+        self.approachFrontController = PID(1.5, 2.5, 2.0)
         self.approachFrontController.setPoint(0)
 
         self.centerBottomXController = PID(0.3, 1.0, 1.0)
@@ -228,9 +228,9 @@ class LandingController(object):
         # Let the drone actually do that action for a moment
         self.r.sleep()
         # Stop the movement
-        self.publishSteering.publish(self.constants.STOP_MOVING)
+        #self.publishSteering.publish(self.constants.STOP_MOVING)
         # Wait a moment for the drone to calm down
-        self.r.sleep()
+        #self.r.sleep()
 
     def TellMeWhatToDo(self, navdata):
         '''
@@ -378,6 +378,8 @@ class LandingController(object):
             controller_input = (tagXPosition - 500) / 500
             controller_output = self.centerBottomXController.update(controller_input)
             controller_ouput = self.centerBottomXController.avoid_drastic_corrections(controller_output)
+            tmp = controller_output * self.constants.CENTER_BOTTOM_X_VELOCITY
+            print "Bottom: %f" % controller_ouput
             return matrix33(0.0, controller_output * self.constants.CENTER_BOTTOM_X_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
         else:
