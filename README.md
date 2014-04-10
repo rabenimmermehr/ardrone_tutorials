@@ -19,7 +19,7 @@ The drone is situated about 3 to 5 meters away from the wall. For my purposes I'
 What the drone is supposed to be doing
 =======================================
 
-Once the "BringMeHome()" method is called, the drone will turn on the spot until it found the 3 striped tag.
+Once the `BringMeHome()` method is called, the drone will turn on the spot until it found the 3 striped tag.
 Then it will approach this tag, while making adjustments to keep it centered in the field of view.
 Upon detecting the tag on the floor, it will try to center this tag in it's field of view.
 Once centered, it will land.
