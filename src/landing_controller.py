@@ -27,7 +27,7 @@ class LandingController(object):
         # Stores the most recent navdata
         self.recentNavdata = None
 
-	# Subscribe to the /ardrone/navdata topic, so we get updated whenever new information arrives from the drone
+	    # Subscribe to the /ardrone/navdata topic, so we get updated whenever new information arrives from the drone
         self.subscribeNavdata = rospy.Subscriber('ardrone/navdata', Navdata, self.__ReceiveNavdata)
 
         # Allow us to publish to the steering topic
@@ -50,7 +50,9 @@ class LandingController(object):
         self.findTagController.setPoint(0.0)
 
         # self.centerFrontController = PID(0.8, 0.01, 1.5)
-        self.centerFrontController = PID(0.8, 0.01, 0.5)
+        # The one below worked pretty good
+        # self.centerFrontController = PID(0.8, 0.01, 0.5)
+        self.centerFrontController = PID (2.0, 0.0, 0.0)
         self.centerFrontController.setPoint(0)
 
         self.approachFrontController = PID(1.5, 2.0, 2.0)
@@ -86,14 +88,14 @@ class LandingController(object):
 
     def __SignalHandler(self, frame, placeholderArgument):
         '''
-            Sets the stopTask flag, so our loops stop
+            Sets the stopTask flag, so our loops stop when interrupted via keyboard
         '''
 
         self.stopTask = True
 
     def __ReceiveNavdata(self, navdata):
         '''
-            Stores the incoming navdata, resets the indizes for the tags
+            Stores the incoming navdata
         '''
 
         self.recentNavdata = navdata
@@ -105,7 +107,9 @@ class LandingController(object):
             It will turn the drone till it finds a 3-colored tag witht the front camera, approach this tag until
             it sees a A4-tag on the bottom and will land the drone on this tag
         '''
+
         # This is the big loop for all the functions. It resets all flags and periodically asks for instructions to be sent to the drone.
+
         if self.recentNavdata == None:
             print "No navdata available, exiting"
             return
@@ -136,7 +140,9 @@ class LandingController(object):
         while (workingNavdata.altd < 1450):
 
             if self.stopTask:
+                # In case of keyboard interruption
                 break
+
             workingNavdata = self.recentNavdata
             self.ExecuteCommand(matrix33(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
             print "Gaining Altitude"
@@ -152,6 +158,7 @@ class LandingController(object):
 
             # Receive the necessary actions
             steeringCommand = self.TellMeWhatToDo(workingNavdata)
+            # Send them to the drone
             self.ExecuteCommand(steeringCommand)
 
         # In case we got stopped via the keyboard, we want to make sure that our last command is to stop the drone from
@@ -168,7 +175,7 @@ class LandingController(object):
 
     def ExecuteCommand(self, steeringCommand):
         '''
-            Takes a matrix33, publishes it to the drone, waits a moment and then sends the command to stop movement
+            Takes a matrix33, publishes it to the drone, and waits for a moment
         '''
 
         # Publish the command
@@ -183,6 +190,7 @@ class LandingController(object):
     def TellMeWhatToDo(self, navdata):
         '''
             Gets the current navdata and returns a matrix33 with appropriate steering commands
+            Automatically decides which commands to send, based on the available tags
         '''
 
         # We got 3 cases: No tag visible, front tag visble, bottom tag visible
@@ -199,8 +207,8 @@ class LandingController(object):
             self.searchCounter+=1
 
             steeringCommand = matrix33(0.0, 0.0, 0.0, self.constants.FIND_TAG_TURN_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0)
-            #return steeringCommand
-            return self.constants.STOP_MOVING
+            return steeringCommand
+            #return self.constants.STOP_MOVING
 
         elif bottomTagIndex > -1:
             # Sweet, the bottom tag is visible!
@@ -211,7 +219,8 @@ class LandingController(object):
             # We need to check if we are turned the right way above the tag
             currentAngle = navdata.tags_orientation[bottomTagIndex]
 
-            # (Actually this step doesn't seem to be necessary so we skip it)
+            # Actually this step doesn't seem to be necessary so we skip it
+            # It should have led to a bigger precision, but mostly the drone is oriented the right way
             return self.LandingPreparations(navdata)
 
 #             if currentAngle > 170.0 and currentAngle < 190.0:
@@ -291,7 +300,9 @@ class LandingController(object):
         # Thing is, the corrections done by the controller will have a pretty huge impact once we are
         # close to the tag, therefore we reduce those corrections depending on the distance from the tag
 
-        reducingFactor = self.constants.reduceFactor * navdata.tags_distance[tagIndex]  / self.constants.reduceDistance
+        #reducingFactor = self.constants.reduceFactor * navdata.tags_distance[tagIndex]  / self.constants.reduceDistance
+        reducingFactor = navdata.tags_distance[tagIndex]  / self.constants.reduceDistance
+
         if reducingFactor > 1:
             reducingFactor = 1
         sidewardsMovement = reducingFactor * controller_output * self.constants.TAG_CENTER_VELOCITY
@@ -300,18 +311,19 @@ class LandingController(object):
 
     def TellMeApproach(self, navdata):
         '''
-            Returns a matrix33 whith commands to approach the tag
+            Returns a matrix33 whith commands to approach the tag up to a certain distance
         '''
         tagIndex = self.GetFrontTagIndex(navdata)
 
         # We want the drone to stop at a certain point in front of the tag
         # Also, we want it to go full speed up to controllerDistance away from that point, followed by a
-        # distance, where the controller handles the speed
+        # distance, where the controller handles the speed (The controller isn't given the actual distance but a float value representing how
+        # far away we are. It then returns a factor, with which we multiply our TAG_APPROACH_VELOCITY)
 
         controller_input = (navdata.tags_distance[tagIndex] - self.constants.desiredDistance) / self.constants.controllerDistance
         controller_output = self.approachFrontController.update(controller_input)
 
-        # The output value needs to be inverted
+        # The output value needs to be inverted, avoid drastic controller outputs
         controller_output = - self.approachFrontController.avoid_drastic_corrections(controller_output)
 
         return matrix33(controller_output * self.constants.TAG_APPROACH_VELOCITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -353,10 +365,10 @@ class LandingController(object):
 
         else:
             print "READY"
-            return self.constants.STOP_MOVING
-        # Tag is centered in both directions, we are done, we can land!
+            #return self.constants.STOP_MOVING
+            # Tag is centered in both directions, we are done, we can land!
             self.success = True
-           # return matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+            return matrix33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
 
 
     def AlignBottomTag(self, navdata):
@@ -392,6 +404,9 @@ class LandingController(object):
         return -1
 
     def BringMeCenterRotate(self):
+        '''
+            A test method that only rotates the drone
+        '''
 
         # Reset flags
         self.stopTask = False
@@ -420,6 +435,9 @@ class LandingController(object):
         print "Done"
 
     def BringMeCenterLateral(self):
+        '''
+            A test method that only moves the drone laterally
+        '''
 
         # Reset flags
         self.stopTask = False
@@ -438,6 +456,9 @@ class LandingController(object):
 
 
     def GetMeAligned(self):
+        '''
+            Test method that rotates the drone above the bottom tag
+        '''
 
          # Reset flags
         self.stopTask = False
@@ -453,6 +474,9 @@ class LandingController(object):
             self.ExecuteCommand(steeringCommand)
 
     def GetMeReady(self):
+        '''
+            Test method, that centers the drone above the bottom tag
+        '''
 
          # Reset flags
         self.stopTask = False
