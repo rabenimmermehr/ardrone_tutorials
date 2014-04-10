@@ -46,7 +46,7 @@ class LandingConstants(object):
         self.reduceDistance = 250.0
 
         # A factor to further reduce sidewards movements
-        self.reduceFactor = 0.5
+        #self.reduceFactor = 0.5
 
         # How fast the drone should move laterally to center the bottom tag in the x direction
         self.CENTER_BOTTOM_X_VELOCITY = 0.02
